@@ -407,7 +407,6 @@ func (c *PTYConversation) sendMessage(ctx context.Context, messageParts ...Messa
 	c.lock.Lock()
 	screenBeforeMessage := c.cfg.AgentIO.ReadScreen()
 	now := c.cfg.Clock.Now()
-	c.updateLastAgentMessageLocked(screenBeforeMessage, now)
 	c.writingMessage = true
 	c.lock.Unlock()
 
@@ -419,6 +418,10 @@ func (c *PTYConversation) sendMessage(ctx context.Context, messageParts ...Messa
 	}
 
 	c.lock.Lock()
+	// Update agent message AFTER the agent has processed the user input.
+	// This must happen after writeStabilize so the diff picks up agent output,
+	// and before appending the user message so shouldCreateNewMessage is true.
+	c.updateLastAgentMessageLocked(c.cfg.AgentIO.ReadScreen(), now)
 	c.screenBeforeLastUserMessage = screenBeforeMessage
 	c.messages = append(c.messages, ConversationMessage{
 		Id:      len(c.messages),
