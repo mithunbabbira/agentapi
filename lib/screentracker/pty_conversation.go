@@ -407,7 +407,10 @@ func (c *PTYConversation) sendMessage(ctx context.Context, messageParts ...Messa
 	c.lock.Lock()
 	screenBeforeMessage := c.cfg.AgentIO.ReadScreen()
 	now := c.cfg.Clock.Now()
-	c.updateLastAgentMessageLocked(screenBeforeMessage, now)
+	// Note: removed c.updateLastAgentMessageLocked(screenBeforeMessage, now) to avoid
+	// a "ghost update" that would overwrite the last agent message with stale content.
+	// The screen is stable at this point (stableSignal already fired), so this call
+	// produces no useful work and was the root cause of message corruption.
 	c.writingMessage = true
 	c.lock.Unlock()
 

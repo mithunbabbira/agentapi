@@ -10,7 +10,6 @@ import (
 func screenDiff(oldScreen, newScreen string, agentType msgfmt.AgentType) string {
 	oldLines := strings.Split(oldScreen, "\n")
 	newLines := strings.Split(newScreen, "\n")
-	oldLinesMap := make(map[string]bool)
 
 	// -1 indicates no header
 	dynamicHeaderEnd := -1
@@ -25,16 +24,25 @@ func screenDiff(oldScreen, newScreen string, agentType msgfmt.AgentType) string 
 		dynamicHeaderEnd = 2
 	}
 
-	for _, line := range oldLines {
-		oldLinesMap[line] = true
-	}
+	// Use positional diff instead of content-set lookup.
+	// The old algorithm (line 28-37 in the original) built a set of old line
+	// contents and found the first new line not in that set, then took
+	// everything from that index onward — which bled historical content that
+	// reappeared mid-screen. Instead, compare line-by-line from the end of
+	// the old screen forward to find the longest common suffix, then return
+	// everything after that boundary.
 	firstNonMatchingLine := len(newLines)
-	for i, line := range newLines[dynamicHeaderEnd+1:] {
-		if !oldLinesMap[line] {
-			firstNonMatchingLine = i
-			break
-		}
+	oldStart := dynamicHeaderEnd + 1
+	newStart := dynamicHeaderEnd + 1
+	// Compare from the end, walking backwards while lines match
+	oldIdx := len(oldLines) - 1
+	newIdx := len(newLines) - 1
+	for oldIdx >= oldStart && newIdx >= newStart && oldLines[oldIdx] == newLines[newIdx] {
+		oldIdx--
+		newIdx--
 	}
+	// newIdx+1 is the first non-matching line from the beginning
+	firstNonMatchingLine = newIdx + 1
 	newSectionLines := newLines[firstNonMatchingLine:]
 
 	// remove leading and trailing lines which are empty or have only whitespace
